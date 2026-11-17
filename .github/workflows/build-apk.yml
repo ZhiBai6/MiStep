@@ -1,0 +1,81 @@
+name: Build Mi Step APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      signed:
+        description: 使用 Secrets 中的密钥签名
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - uses: android-actions/setup-android@v4
+
+      - name: Install Android build dependencies
+        run: |
+          sdkmanager 'platforms;android-34' 'platforms;android-35' 'build-tools;37.0.0' 'ndk;28.2.13676358'
+          if ($LASTEXITCODE -ne 0) { throw 'Android SDK installation failed.' }
+
+      - name: Build APK
+        env:
+          SIGNED_BUILD: ${{ inputs.signed }}
+          MISTEP_KEYSTORE_BASE64: ${{ secrets.MISTEP_KEYSTORE_BASE64 }}
+          MISTEP_KEY_ALIAS: ${{ secrets.MISTEP_KEY_ALIAS }}
+          MISTEP_STORE_PASSWORD: ${{ secrets.MISTEP_STORE_PASSWORD }}
+          MISTEP_KEY_PASSWORD: ${{ secrets.MISTEP_KEY_PASSWORD }}
+        run: |
+          if ($env:SIGNED_BUILD -ne 'true') {
+            ./build.ps1 -Unsigned
+            exit
+          }
+          foreach ($name in @('MISTEP_KEYSTORE_BASE64', 'MISTEP_KEY_ALIAS', 'MISTEP_STORE_PASSWORD', 'MISTEP_KEY_PASSWORD')) {
+            if (-not [Environment]::GetEnvironmentVariable($name)) {
+              throw "Missing GitHub Actions secret $name."
+            }
+          }
+          $env:MISTEP_KEYSTORE = Join-Path $env:RUNNER_TEMP 'mistep-signing.keystore'
+          try {
+            [IO.File]::WriteAllBytes($env:MISTEP_KEYSTORE, [Convert]::FromBase64String($env:MISTEP_KEYSTORE_BASE64))
+            ./build.ps1
+          } finally {
+            if (Test-Path -LiteralPath $env:MISTEP_KEYSTORE) {
+              Remove-Item -LiteralPath $env:MISTEP_KEYSTORE -Force
+            }
+          }
+
+      - name: Run offline tests
+        run: ./test.ps1 -Python python
+
+      - name: Upload APK and checksums
+        uses: actions/upload-artifact@v7
+        with:
+          name: MiStep-${{ github.run_number }}
+          path: |
+            dist/*.apk
+            dist/build-info.json
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
