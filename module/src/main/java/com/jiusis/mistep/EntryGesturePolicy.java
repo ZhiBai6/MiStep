@@ -3,6 +3,11 @@ package com.jiusis.mistep;
 final class EntryGesturePolicy {
     private EntryGesturePolicy() {}
 
+    static boolean isBottom(int mode) {
+        return mode == WorkspaceOptions.BOTTOM_CENTER_OUTWARD
+                || mode == WorkspaceOptions.BOTTOM_CORNERS_INWARD;
+    }
+
     static boolean canSelect(int mode, boolean gestureLineHidden) {
         return mode != WorkspaceOptions.BOTTOM_CENTER_OUTWARD || gestureLineHidden;
     }

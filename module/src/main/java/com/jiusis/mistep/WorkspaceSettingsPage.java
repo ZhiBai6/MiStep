@@ -593,6 +593,7 @@ final class WorkspaceSettingsPage extends FrameLayout {
     }
 
     private String gestureLabel(int mode) {
+        if (mode == WorkspaceOptions.BOTTOM_CORNERS_INWARD) return "底部两角向内滑";
         return mode == WorkspaceOptions.BOTTOM_CENTER_OUTWARD ? "底部向外滑" : "状态栏向内滑";
     }
 
@@ -609,6 +610,9 @@ final class WorkspaceSettingsPage extends FrameLayout {
                 : "需先关闭澎湃小白条（手势提示线）";
         entryGestureOption(group, WorkspaceOptions.BOTTOM_CENTER_OUTWARD,
                 "底部向外滑", detail, selected, lineHidden);
+        divider(group);
+        entryGestureOption(group, WorkspaceOptions.BOTTOM_CORNERS_INWARD,
+                "底部两角向内滑", "从左下角向右滑，或从右下角向左滑唤出一步", selected, true);
         add(group, 0, 0);
     }
 

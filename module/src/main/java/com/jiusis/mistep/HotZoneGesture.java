@@ -90,7 +90,7 @@ public final class HotZoneGesture {
         // DOWN already admitted this stream. Retain horizontal intent before binder-backed
         // geometry/settings/unlock queries let the native navigation monitor win the race.
         if (e.getActionMasked() == MotionEvent.ACTION_MOVE && !bottomPilfered
-                && admittedEntryGesture == WorkspaceOptions.BOTTOM_CENTER_OUTWARD
+                && EntryGesturePolicy.isBottom(admittedEntryGesture)
                 && selectedEntryGesture == admittedEntryGesture && !MiStepHost.hostSceneActive()
                 && bottomSwipe.canRetain(e.getPointerId(0), e.getPointerCount(), e.getRawX(), e.getRawY(),
                         e.getEventTime(), bottomIntentPx, bottomVerticalPx)) {
@@ -128,12 +128,13 @@ public final class HotZoneGesture {
         if (action == MotionEvent.ACTION_DOWN) {
             entryContext = MiStepStatusBar.cornerGestureContext();
             float density = context.getResources().getDisplayMetrics().density;
-            if (admittedEntryGesture == WorkspaceOptions.BOTTOM_CENTER_OUTWARD) {
+            if (EntryGesturePolicy.isBottom(admittedEntryGesture)) {
                 bottomIntentPx = Math.round(2f * density);
                 bottomVerticalPx = Math.round(24f * density);
                 bottomSwipe.down(e.getPointerId(0), e.getPointerCount(), e.getRawX(), e.getRawY(),
                         e.getEventTime(), size.x, size.y, rotation,
-                        Math.round(8f * density));
+                        Math.round((admittedEntryGesture == WorkspaceOptions.BOTTOM_CORNERS_INWARD ? 24f : 8f) * density),
+                        admittedEntryGesture == WorkspaceOptions.BOTTOM_CORNERS_INWARD ? Math.round(72f * density) : 0);
                 if (bottomSwipe.active()) {
                     try {
                         setInputBatching(false);
@@ -142,7 +143,7 @@ public final class HotZoneGesture {
                         log("bottom immediate input unavailable: " + error);
                         reset(); return;
                     }
-                    log("bottom entry candidate; immediate input; edge=" + Math.round(8f * density));
+                    log("bottom entry candidate; immediate input; mode=" + admittedEntryGesture);
                 }
             } else {
                 swipe.down(e.getPointerId(0), e.getPointerCount(), e.getRawX(), e.getRawY(),
@@ -154,7 +155,7 @@ public final class HotZoneGesture {
             if (!keepsEntry(size)) { reset(); return; }
             float density = context.getResources().getDisplayMetrics().density;
             boolean bottomCandidate = bottomSwipe.active();
-            boolean acceptedSwipe = admittedEntryGesture == WorkspaceOptions.BOTTOM_CENTER_OUTWARD
+            boolean acceptedSwipe = EntryGesturePolicy.isBottom(admittedEntryGesture)
                     ? bottomSwipe.move(e.getPointerId(0), e.getPointerCount(), e.getRawX(), e.getRawY(),
                             e.getEventTime(), size.x, size.y, rotation,
                             Math.round(58f * density), Math.round(24f * density))
@@ -162,7 +163,7 @@ public final class HotZoneGesture {
                             e.getEventTime(), size.x, size.y, rotation);
             // The native bottom monitor can cancel us after about 5dp. Claim clear
             // horizontal intent first; retain the full 58dp threshold for opening.
-            if (admittedEntryGesture == WorkspaceOptions.BOTTOM_CENTER_OUTWARD && !bottomPilfered
+            if (EntryGesturePolicy.isBottom(admittedEntryGesture) && !bottomPilfered
                     && (acceptedSwipe || (action == MotionEvent.ACTION_MOVE
                     && bottomSwipe.horizontalIntent(e.getRawX(), e.getRawY(), Math.round(2f * density))))) {
                 if (!MiStepEntryGuard.canOpen(context) || !pilferPointers()) { reset(); return; }
@@ -180,7 +181,7 @@ public final class HotZoneGesture {
                 long acceptedDown = bottomDownTime;
                 MAIN.postDelayed(() -> {
                     if (enabled && generation == accepted) {
-                        if (admittedEntryGesture == WorkspaceOptions.BOTTOM_CENTER_OUTWARD
+                        if (EntryGesturePolicy.isBottom(admittedEntryGesture)
                                 && lastBottomOpened == acceptedDown) return;
                         if (MiStepHost.hostSceneActive() || !MiStepEntryGuard.canOpen(context)) { reset(); return; }
                         Point current = new Point();
@@ -190,10 +191,10 @@ public final class HotZoneGesture {
                                 || !keepsEntry(current)) { reset(); return; }
                         generation++;
                         // 主区域跟随水平滑动方向：向右在右，向左在左。
-                        boolean mainRight = admittedEntryGesture == WorkspaceOptions.BOTTOM_CENTER_OUTWARD
+                        boolean mainRight = EntryGesturePolicy.isBottom(admittedEntryGesture)
                                 ? bottomSwipe.sign() > 0 : swipe.sign() > 0;
                         MiStepHost.setPendingMainSide(mainRight);
-                        if (admittedEntryGesture == WorkspaceOptions.BOTTOM_CENTER_OUTWARD)
+                        if (EntryGesturePolicy.isBottom(admittedEntryGesture))
                             lastBottomOpened = acceptedDown;
                         log("gesture mode=" + admittedEntryGesture
                                 + " -> main=" + (mainRight ? "right" : "left") + " -> open");
@@ -221,7 +222,7 @@ public final class HotZoneGesture {
     }
 
     public static void setEntryGesture(int mode) {
-        int valid = mode == WorkspaceOptions.BOTTOM_CENTER_OUTWARD
+        int valid = EntryGesturePolicy.isBottom(mode)
                 ? mode : WorkspaceOptions.STATUS_BAR_INWARD;
         if (instance != null) instance.context.sendBroadcast(
                 new android.content.Intent("com.jiusis.mistep.BOTTOM_INPUT_OPTIONS")
@@ -231,20 +232,20 @@ public final class HotZoneGesture {
         if (instance != null) instance.reset();
     }
 
-    static void completeBottomReplay(int sign, long downTime, long eventTime) {
+    static void completeBottomReplay(int mode, int sign, long downTime, long eventTime) {
         HotZoneGesture g = instance;
-        if (g == null || (sign != -1 && sign != 1) || downTime < 0 || eventTime < downTime
+        if (g == null || !EntryGesturePolicy.isBottom(mode) || (sign != -1 && sign != 1) || downTime < 0 || eventTime < downTime
                 || eventTime - downTime > 600) return;
         MAIN.post(() -> {
             long now = SystemClock.uptimeMillis();
             if (!g.enabled || now < eventTime || now - eventTime > 600
                     || g.lastBottomOpened == downTime || MiStepHost.hostSceneActive()
-                    || g.effectiveEntryGesture() != WorkspaceOptions.BOTTOM_CENTER_OUTWARD
+                    || g.effectiveEntryGesture() != mode
                     || !MiStepEntryGuard.canOpen(g.context)) return;
             WindowManager wm = (WindowManager) g.context.getSystemService(Context.WINDOW_SERVICE);
             Point size = new Point();
             wm.getDefaultDisplay().getRealSize(size);
-            if (!g.allowsEntry(size, WorkspaceOptions.BOTTOM_CENTER_OUTWARD)) return;
+            if (!g.allowsEntry(size, mode)) return;
             g.reset();
             g.lastBottomOpened = downTime;
             MiStepHost.setPendingMainSide(sign > 0);
@@ -259,14 +260,14 @@ public final class HotZoneGesture {
     }
 
     private boolean allowsEntry(Point size, int mode) {
-        return mode == WorkspaceOptions.BOTTOM_CENTER_OUTWARD
+        return EntryGesturePolicy.isBottom(mode)
                 ? MiStepStatusBar.allowsBottomGesture(size.x, size.y, DeviceProfile.isTablet(context))
                 : MiStepStatusBar.allowsCornerGesture(size.x, size.y, DeviceProfile.isTablet(context));
     }
 
     private boolean keepsEntry(Point size) {
         if (effectiveEntryGesture() != admittedEntryGesture) return false;
-        return admittedEntryGesture == WorkspaceOptions.BOTTOM_CENTER_OUTWARD
+        return EntryGesturePolicy.isBottom(admittedEntryGesture)
                 ? allowsEntry(size, admittedEntryGesture)
                 : MiStepStatusBar.keepsCornerGesture(entryContext);
     }

@@ -3629,7 +3629,9 @@ public class HostEntry implements IXposedHookLoadPackage {
         }
         if (!MiStepEntryGuard.canOpen(sContext)) return;
         if (intent.hasExtra("legacyBottomSign")) {
-            HotZoneGesture.completeBottomReplay(intent.getIntExtra("legacyBottomSign", 0),
+            HotZoneGesture.completeBottomReplay(
+                    intent.getIntExtra("legacyBottomMode", WorkspaceOptions.BOTTOM_CENTER_OUTWARD),
+                    intent.getIntExtra("legacyBottomSign", 0),
                     intent.getLongExtra("legacyBottomDown", -1),
                     intent.getLongExtra("legacyBottomTime", -1));
             return;

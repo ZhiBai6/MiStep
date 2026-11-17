@@ -81,6 +81,13 @@ public class SettingsRegression {
   check(WorkspaceSettingsStore.decode(new Bundle()).entryGesture==0,"old provider snapshot retains corner");
   try {WorkspaceSettingsStore.decode(null);throw new AssertionError("missing snapshot accepted");}
   catch(IllegalArgumentException expected){checks++;}
+  c.prefs.commit=true;Settings.Global.hidden=0;
+  WorkspaceOptions corners=old.withEntryGesture(WorkspaceOptions.BOTTOM_CORNERS_INWARD);
+  check(WorkspaceSettingsStore.write(c,corners),"bottom corners selectable with gesture line visible");
+  check(WorkspaceSettingsStore.read(c).entryGesture==2,"bottom corners choice persists");
+  WorkspaceOptions snapshot=WorkspaceSettingsStore.decode(WorkspaceSettingsStore.bundle(WorkspaceSettingsStore.read(c)));
+  check(snapshot.entryGesture==2&&snapshot.hiddenButtons==old.hiddenButtons&&snapshot.swapMode==old.swapMode,"bottom corners snapshot preserves choices");
+  check(snapshot.withVisible(3,false).withSwapMode(0).withKeepOnLock(true).entryGesture==2,"other settings preserve bottom corners");
   System.out.println("production settings migration, lock preference and gesture gate checks="+checks+" passed");
  }
 }'''

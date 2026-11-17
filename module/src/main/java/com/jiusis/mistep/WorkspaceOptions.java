@@ -3,7 +3,7 @@ package com.jiusis.mistep;
 /** Immutable user choices. Invalid stored values retain the existing workspace behavior. */
 final class WorkspaceOptions {
     static final int GROW_IN_PLACE = 0, FIXED_MAIN = 1;
-    static final int STATUS_BAR_INWARD = 0, BOTTOM_CENTER_OUTWARD = 1;
+    static final int STATUS_BAR_INWARD = 0, BOTTOM_CENTER_OUTWARD = 1, BOTTOM_CORNERS_INWARD = 2;
     static final int CONTROL_CENTER = 0, WIFI = 1, MOBILE_DATA = 2, BLUETOOTH = 3,
             VPN = 4, DEVICE_NAME = 5, PAYMENT = 6, SCANNER = 7, TRANSIT = 8,
             VOLUME = 9, BRIGHTNESS = 10, EXIT = 11, SYSTEM_SETTINGS = 12,
@@ -29,8 +29,8 @@ final class WorkspaceOptions {
     WorkspaceOptions(int hiddenButtons, int swapMode, int entryGesture, boolean keepOnLock) {
         this.hiddenButtons = hiddenButtons & KNOWN_BUTTONS;
         this.swapMode = swapMode == FIXED_MAIN ? FIXED_MAIN : GROW_IN_PLACE;
-        this.entryGesture = entryGesture == BOTTOM_CENTER_OUTWARD
-                ? BOTTOM_CENTER_OUTWARD : STATUS_BAR_INWARD;
+        this.entryGesture = entryGesture == BOTTOM_CENTER_OUTWARD || entryGesture == BOTTOM_CORNERS_INWARD
+                ? entryGesture : STATUS_BAR_INWARD;
         this.keepOnLock = keepOnLock;
     }
 

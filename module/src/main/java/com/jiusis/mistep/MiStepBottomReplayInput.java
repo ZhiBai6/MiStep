@@ -45,6 +45,7 @@ final class MiStepBottomReplayInput {
     static void setMode(int mode) {
         MiStepBottomReplayInput bridge = instance;
         if (bridge != null) bridge.handler.post(() -> {
+            bridge.swipe.reset();
             bridge.selected = mode;
             XposedBridge.log("MiStepProbe: bottom replay option=" + mode);
             bridge.reconcile();
@@ -91,8 +92,9 @@ final class MiStepBottomReplayInput {
 
     private boolean allowed() {
         String zoom = Settings.Global.getString(context.getContentResolver(), "mistep_zoom");
-        return selected == WorkspaceOptions.BOTTOM_CENTER_OUTWARD
-                && EntryGestureSettings.lineHidden(context) && MiStepEntryGuard.canOpen(context)
+        return EntryGesturePolicy.isBottom(selected)
+                && EntryGesturePolicy.canSelect(selected, EntryGestureSettings.lineHidden(context))
+                && MiStepEntryGuard.canOpen(context)
                 && zoom != null && zoom.matches(".*\\|1(?:\\.0+)? 0 0");
     }
 
@@ -135,12 +137,14 @@ final class MiStepBottomReplayInput {
             if (e.action == MotionEvent.ACTION_DOWN) {
                 downTime = e.time;
                 swipe.down(e.pointer, e.count, e.x, e.y, e.time, size.x, size.y, rotation,
-                        Math.round(8f * density));
+                        Math.round((selected == WorkspaceOptions.BOTTOM_CORNERS_INWARD ? 24f : 8f) * density),
+                        selected == WorkspaceOptions.BOTTOM_CORNERS_INWARD ? Math.round(72f * density) : 0);
             } else if (e.action == MotionEvent.ACTION_MOVE || e.action == MotionEvent.ACTION_UP) {
                 if (swipe.move(e.pointer, e.count, e.x, e.y, e.time, size.x, size.y, rotation,
                         Math.round(58f * density), Math.round(24f * density))) {
                     context.sendBroadcast(new Intent("com.jiusis.mistep.DEBUG")
                             .setPackage("com.android.systemui")
+                            .putExtra("legacyBottomMode", selected)
                             .putExtra("legacyBottomSign", swipe.sign())
                             .putExtra("legacyBottomDown", downTime)
                             .putExtra("legacyBottomTime", e.time));

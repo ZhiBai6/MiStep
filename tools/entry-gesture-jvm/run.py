@@ -321,13 +321,13 @@ public class EntryGestureRegression {
   event(1,600,2459);Handler.drain();check(opened==1,"retained stream survives competing claim during state queries");
   reset(0,1080,2460);HotZoneGesture.setEntryGesture(1);android.provider.Settings.Global.hide=1;
   long replayDown=9000000;android.os.SystemClock.now=replayDown+250;
-  HotZoneGesture.completeBottomReplay(1,replayDown,replayDown+200);
+  HotZoneGesture.completeBottomReplay(1,1,replayDown,replayDown+200);
   check(opened==1&&Boolean.TRUE.equals(MiStepHost.pendingRight),"native penetration replay opens right");
-  HotZoneGesture.completeBottomReplay(1,replayDown,replayDown+200);
+  HotZoneGesture.completeBottomReplay(1,1,replayDown,replayDown+200);
   check(opened==1,"same physical replay cannot open twice");
   reset(0,1080,2460);HotZoneGesture.setEntryGesture(1);android.provider.Settings.Global.hide=1;
   replayDown+=1000;android.os.SystemClock.now=replayDown+250;
-  HotZoneGesture.completeBottomReplay(-1,replayDown,replayDown+200);
+  HotZoneGesture.completeBottomReplay(1,-1,replayDown,replayDown+200);
   check(opened==1&&Boolean.FALSE.equals(MiStepHost.pendingRight),"native penetration replay opens left");
   for(int gate=0;gate<6;gate++) {
    reset(0,1080,2460);HotZoneGesture.setEntryGesture(1);android.provider.Settings.Global.hide=1;
@@ -338,9 +338,32 @@ public class EntryGestureRegression {
    if(gate==3)MiStepHost.active=true;
    if(gate==4)panel(true);
    if(gate==5)android.os.SystemClock.now=replayDown+1000;
-   HotZoneGesture.completeBottomReplay(1,replayDown,replayDown+200);
+   HotZoneGesture.completeBottomReplay(1,1,replayDown,replayDown+200);
    untouched("replay validates gate "+gate);
   }
+  reset(0,1080,2460);HotZoneGesture.setEntryGesture(2);android.provider.Settings.Global.hide=0;
+  event(0,20,2450);event(2,80,2450);event(1,80,2450);Handler.drain();
+  check(opened==1&&Boolean.TRUE.equals(MiStepHost.pendingRight),"left bottom corner opens right main with visible line");
+  reset(0,1080,2460);HotZoneGesture.setEntryGesture(2);
+  event(0,1060,2450);event(2,1000,2450);event(1,1000,2450);Handler.drain();
+  check(opened==1&&Boolean.FALSE.equals(MiStepHost.pendingRight),"right bottom corner opens left main");
+  reset(0,1080,2460);HotZoneGesture.setEntryGesture(2);
+  event(0,540,2450);event(2,600,2450);event(1,600,2450);Handler.drain();
+  untouched("bottom center excluded in corner mode");
+  reset(0,1080,2460);HotZoneGesture.setEntryGesture(2);
+  event(0,1060,2450);event(2,1070,2450);event(1,1075,2450);Handler.drain();
+  untouched("outward bottom corner does not claim");
+  reset(0,1080,2460);HotZoneGesture.setEntryGesture(2);
+  event(0,20,2450);event(2,40,2450);HotZoneGesture.setEntryGesture(0);event(1,80,2450);Handler.drain();
+  check(opened==0,"mode change cancels pending corner gesture");
+  reset(0,1080,2460);HotZoneGesture.setEntryGesture(2);
+  replayDown+=2000;android.os.SystemClock.now=replayDown+250;
+  HotZoneGesture.completeBottomReplay(1,1,replayDown,replayDown+200);
+  untouched("old mode replay cannot open new mode");
+  HotZoneGesture.completeBottomReplay(2,-1,replayDown,replayDown+200);
+  check(opened==1&&Boolean.FALSE.equals(MiStepHost.pendingRight),"corner native replay opens matching mode");
+  HotZoneGesture.completeBottomReplay(2,-1,replayDown,replayDown+200);
+  check(opened==1,"corner native replay deduplicates");
   System.out.println("actual entry spy/native observer checks="+checks+" passed");
  }
 }'''
